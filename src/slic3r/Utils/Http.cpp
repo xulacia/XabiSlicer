@@ -29,7 +29,16 @@
 #include <boost/log/trivial.hpp>
 
 #include <curl/curl.h>
+#include <cstring>
 #include <utility>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <netinet/in.h>
+#include <sys/socket.h>
+#endif
 
 #ifdef OPENSSL_CERT_OVERRIDE
 #include <openssl/x509.h>
@@ -40,6 +49,40 @@ namespace fs = boost::filesystem;
 namespace Slic3r {
 
 // Private
+
+// Xabislicer: the app must never talk to the internet, only to printers on the local network.
+// Every request in the app goes through this class, so the check sits on the socket curl is about
+// to open: it sees the real IP after DNS and after every redirect, which a URL check would miss.
+static bool is_local_network_address(const struct sockaddr *addr)
+{
+    if (addr->sa_family == AF_INET) {
+        unsigned char b[4];
+        std::memcpy(b, &reinterpret_cast<const struct sockaddr_in *>(addr)->sin_addr, 4);
+        return b[0] == 10                                  // 10.0.0.0/8
+            || b[0] == 127                                 // loopback
+            || (b[0] == 172 && (b[1] & 0xF0) == 16)        // 172.16.0.0/12
+            || (b[0] == 192 && b[1] == 168)                // 192.168.0.0/16
+            || (b[0] == 169 && b[1] == 254);               // link-local
+    }
+    if (addr->sa_family == AF_INET6) {
+        unsigned char b[16];
+        std::memcpy(b, &reinterpret_cast<const struct sockaddr_in6 *>(addr)->sin6_addr, 16);
+        static const unsigned char loopback[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+        return std::memcmp(b, loopback, 16) == 0
+            || (b[0] & 0xFE) == 0xFC                       // fc00::/7 unique local
+            || (b[0] == 0xFE && (b[1] & 0xC0) == 0x80);    // fe80::/10 link-local
+    }
+    return false;
+}
+
+static curl_socket_t local_network_only_opensocket(void * /*clientp*/, curlsocktype /*purpose*/, struct curl_sockaddr *address)
+{
+    if (!is_local_network_address(&address->addr)) {
+        BOOST_LOG_TRIVIAL(warning) << "Xabislicer: blocked a connection outside the local network";
+        return CURL_SOCKET_BAD;
+    }
+    return ::socket(address->family, address->socktype, address->protocol);
+}
 
 struct CurlGlobalInit
 {
@@ -209,6 +252,9 @@ Http::priv::priv(const std::string &url)
     set_timeout_max(DEFAULT_TIMEOUT_MAX);
 	::curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, log_trace);
 	::curl_easy_setopt(curl, CURLOPT_URL, url.c_str());   // curl makes a copy internally
+	::curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, local_network_only_opensocket);
+	// A proxy would make every connection look like it goes to the proxy, so never use one.
+	::curl_easy_setopt(curl, CURLOPT_NOPROXY, "*");
 	::curl_easy_setopt(curl, CURLOPT_USERAGENT, SLIC3R_APP_NAME "/" SoftFever_VERSION);
 	::curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, &error_buffer.front());
 #ifdef __WINDOWS__

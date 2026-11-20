@@ -1,0 +1,75 @@
+name: Xabislicer macOS
+
+# Builds Xabislicer for Apple Silicon Macs and uploads an unsigned .dmg as a run artifact.
+# Mirrors the macOS steps of build_deps.yml and build_orca.yml, without signing,
+# notarization, x86_64, tests or the preset cache.
+
+on:
+  push:
+    branches:
+      - xabislicer
+  workflow_dispatch:
+
+concurrency:
+  group: xabislicer-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Xabislicer (macOS arm64)
+    runs-on: macos-15
+    timeout-minutes: 340
+    env:
+      ARCH: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install tools
+        run: |
+          brew install automake texinfo libtool pkgconf yasm nasm ninja
+          mkdir -p "$GITHUB_WORKSPACE/deps/build/$ARCH"
+
+      - uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~4.3.0"
+
+      # The dependencies take one to two hours to build; they only change when deps/ does.
+      - name: Restore dependencies
+        id: deps_cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/deps/build/arm64
+          key: xabislicer-deps-macos-arm64-${{ hashFiles('deps/**') }}
+
+      - name: Build dependencies
+        if: steps.deps_cache.outputs.cache-hit != 'true'
+        run: |
+          ./build_release_macos.sh -dx -j 3 -a "$ARCH" -t 10.15
+          (cd "deps/build/$ARCH" && find . -mindepth 1 -maxdepth 1 ! -name 'OrcaSlicer_dep' -exec rm -rf {} +)
+
+      - name: Build Xabislicer
+        run: ./build_release_macos.sh -s -x -j 3 -a "$ARCH" -t 10.15
+
+      # The build scripts name the bundle OrcaSlicer.app; only the bundle folder is renamed,
+      # the executable inside keeps its name. Ad-hoc signed so Apple Silicon will run it.
+      - name: Package .dmg
+        run: |
+          ver=$(grep 'set(SoftFever_VERSION' version.inc | cut -d '"' -f2)
+          stage="$RUNNER_TEMP/dmg"
+          mkdir -p "$stage"
+          cp -R "build/$ARCH/OrcaSlicer/OrcaSlicer.app" "$stage/Xabislicer.app"
+          codesign --force --deep --sign - "$stage/Xabislicer.app"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname "Xabislicer" -srcfolder "$stage" -ov -format UDZO "Xabislicer_${ver}_Mac_arm64.dmg"
+          echo "DMG=Xabislicer_${ver}_Mac_arm64.dmg" >> "$GITHUB_ENV"
+
+      - name: Upload .dmg
+        uses: actions/upload-artifact@v4
+        with:
+          name: Xabislicer_Mac_arm64
+          path: ${{ env.DMG }}
+          if-no-files-found: error
+          retention-days: 30
