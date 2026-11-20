@@ -17,8 +17,9 @@ concurrency:
 jobs:
   build:
     name: Build Xabislicer (macOS arm64)
-    # macos-14 is also Apple Silicon; macos-15 arm64 runners were too busy to pick the job up.
-    runs-on: macos-14
+    # Same image as the upstream macOS builds. If GitHub is short of arm64 Macs the job can be
+    # cancelled with "not acquired by Runner"; just re-run it.
+    runs-on: macos-15
     timeout-minutes: 340
     env:
       ARCH: arm64
