@@ -51,4 +51,27 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$SET" -o "$ROOT/resources/Icon.icns"
 cp "$ROOT/resources/Icon.icns" "$IMG/OrcaSlicer.icns"
+
+# ICO files hold PNG images, like the originals. OrcaSlicer-mac_256px.ico is the Dock icon on macOS
+# (MainFrame sets it at startup), OrcaSlicerTitle.ico is used by some dialogs, OrcaSlicer.ico by Windows.
+# ico <out> <size>...: packs renders of the master icon at the given sizes.
+ico() {
+    local out="$1"; shift
+    local pngs=()
+    for s in "$@"; do render "$ICON" "$s" "$TMP/ico_$s.png"; pngs+=("$TMP/ico_$s.png"); done
+    python3 - "$out" "${pngs[@]}" <<'PY'
+import struct, sys
+out, pngs = sys.argv[1], [open(p, "rb").read() for p in sys.argv[2:]]
+head, body, offset = struct.pack("<HHH", 0, 1, len(pngs)), b"", 6 + 16 * len(pngs)
+for data in pngs:
+    w, h = struct.unpack(">II", data[16:24])
+    head += struct.pack("<BBBBHHII", w % 256, h % 256, 0, 0, 1, 32, len(data), offset)
+    body += data
+    offset += len(data)
+open(out, "wb").write(head + body)
+PY
+}
+ico "$IMG/OrcaSlicer-mac_256px.ico" 256
+ico "$IMG/OrcaSlicerTitle.ico" 154
+ico "$IMG/OrcaSlicer.ico" 16 32 48 64 128 256
 echo "icons written"
