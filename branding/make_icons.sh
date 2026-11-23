@@ -40,6 +40,7 @@ for spec in "OrcaSlicer-mac_128px.png 128" "OrcaSlicer.png 154" "OrcaSlicerTitle
     render "$ICON" "$2" "$IMG/$1"
 done
 render "$GRAY" 192 "$IMG/OrcaSlicer_192px_grayscale.png"
+render "$ICON" 154 "$ROOT/resources/web/image/logo.png"  # welcome page of the setup wizard
 
 # ICNS: the Dock/Finder icon (resources/Icon.icns) and the copy the Info.plist names.
 SET="$TMP/icon.iconset"

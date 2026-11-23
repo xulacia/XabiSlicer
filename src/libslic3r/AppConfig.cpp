@@ -113,7 +113,7 @@ bool AppConfig::get_stealth_mode()
 
 bool AppConfig::get_hide_login_side_panel()
 {
-    return get_bool("hide_login_side_panel");
+    return true; // Xabislicer: no Orca Cloud or Bambu Cloud accounts on the home page.
 }
 
 void AppConfig::reset()

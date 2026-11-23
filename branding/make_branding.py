@@ -81,6 +81,20 @@ def lockup(w, h, icon_size, text_scale, text_color):
     return svg(w, h, f"0 0 {w} {h}", icon + text)
 
 
+def splash(word_color, sub_color):
+    """480 x 480 splash logo. The app draws the version at 72 % and the progress text at 85 %
+    of the height, so everything here stays above y = 330."""
+    size, top = 142, 70
+    icon = (f'<g transform="translate({(480 - size) / 2} {top}) scale({size / 1024})">'
+            f'{mark(TEAL, BLUE, "square")}</g>')
+    parts = [icon]
+    for text, scale, y, color, stroke in (("XABI", 3.7, top + size + 18, word_color, 2.0),
+                                          ("SLICER", 2.3, top + size + 82, sub_color, 2.3)):
+        width = (sum(GLYPHS[c][1] for c in text) + SPACING * (len(text) - 1)) * scale
+        parts.append(wordmark(text, (480 - width) / 2, y, scale, color, stroke)[0])
+    return svg(480, 480, "0 0 480 480", "".join(parts))
+
+
 def main():
     square = mark(TEAL, BLUE, "square")
     files = {
@@ -93,6 +107,8 @@ def main():
         "OrcaSlicer_horizontal_dark.svg": lockup(214, 80, 56, 1.02, "#F9FAFB"),
         "OrcaSlicer_about.svg": lockup(560, 125, 100, 2.55, "#1F2937"),
         "OrcaSlicer_about_dark.svg": lockup(560, 125, 100, 2.55, "#F9FAFB"),
+        "splash_logo.svg": splash(TEAL, "#6B7280"),
+        "splash_logo_dark.svg": splash("#2DD4BF", "#D1D5DB"),
     }
     for name, content in files.items():
         with open(os.path.join(OUT, name), "w", encoding="utf-8") as f:

@@ -6,6 +6,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/filesystem/directory.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/bind/bind.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -243,7 +244,15 @@ GuideFrame::GuideFrame(GUI_App *pGUI, long style)
         wxLogError("Could not init m_browser");
         return;
     }
-    m_browser->AddUserScript(wxString::FromUTF8(WebViewHostDialog::localized_strings_script(guide_strings())));
+    // Xabislicer: the catalogs name the app "Orca Slicer"; show our own name instead.
+    json strings = guide_strings();
+    for (auto &item : strings.items()) {
+        std::string text = item.value().get<std::string>();
+        boost::replace_all(text, "Orca Slicer", SLIC3R_APP_NAME);
+        boost::replace_all(text, "OrcaSlicer", SLIC3R_APP_NAME);
+        item.value() = text;
+    }
+    m_browser->AddUserScript(wxString::FromUTF8(WebViewHostDialog::localized_strings_script(strings)));
     m_browser->Hide();
     m_browser->SetSize(0, 0);
 

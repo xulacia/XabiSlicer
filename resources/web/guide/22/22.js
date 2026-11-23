@@ -20,11 +20,7 @@ function HandleStudio(pVal)
 
 function InstallNetworkPlugin()
 {
-	if(m_ProfileItem["network_plugin_install"]!='1' || (m_ProfileItem["network_plugin_install"]=='1' && m_ProfileItem["network_plugin_compability"]=='0') )
-	{
-		$("#AcceptBtn").hide();
-		$("#GotoNetPluginBtn").show();
-	}
+	// Xabislicer: Finish is always the way out of the wizard; there is no network plug-in page.
 }
 
 function ReturnPreviewPage()
