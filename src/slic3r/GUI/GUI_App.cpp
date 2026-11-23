@@ -2741,7 +2741,9 @@ void GUI_App::init_webview_runtime()
 void GUI_App::init_app_config()
 {
 	// Profiles for the alpha are stored into the PrusaSlicer-alpha directory to not mix with the current release.
-    SetAppName(SLIC3R_APP_KEY);
+    // Xabislicer: own settings folder (~/Library/Application Support/Xabislicer), apart from OrcaSlicer's.
+    // SLIC3R_APP_KEY stays "OrcaSlicer" for the translation catalogs.
+    SetAppName(SLIC3R_APP_NAME);
 //	SetAppName(SLIC3R_APP_KEY "-alpha");
 //  SetAppName(SLIC3R_APP_KEY "-beta");
 //	SetAppDisplayName(SLIC3R_APP_NAME);
